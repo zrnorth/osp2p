@@ -26,6 +26,9 @@
 //added
 #include <sys/wait.h>
 
+//added for design problem
+#include "access.h"
+
 int evil_mode;			// nonzero iff this peer should behave badly
 
 static struct in_addr listen_addr;	// Define listening endpoint
@@ -729,6 +732,16 @@ static void task_upload(task_t *t)
     if (strncmp(curr_path, file_path, strlen(curr_path)))
     {
         error("Error: can only access files in current directory\n");
+        goto exit;
+    }
+
+    //DESIGN PROBLEM stuff
+    //Here we need to check the requested file against the ACCESS_FILE
+    //TODO: user authentication
+    
+    if (!file_access_ok(t->filename))
+    {
+        error("Error 403: file access forbidden\n");
         goto exit;
     }
 

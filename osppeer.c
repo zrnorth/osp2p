@@ -794,36 +794,16 @@ int main(int argc, char *argv[])
         wait(&status);
         message("Exited the download loop.\n");
     }
-
-    // Then accept connections from other peers and upload files to them!
-    // Need to fork again, and child will handle sub-forks.
-    pid = fork();
-    if (!pid) //child will split for each listening task
+    
+    while ((t = task_listen(listen_task)))
     {
-        while ((t = task_listen(listen_task)))
+        pid = fork();
+        if (!pid)
         {
-            int inside_pid = fork();
-            if (!inside_pid) //child handles the upload and quits.
-            {
-                task_upload(t);
-                _exit(0);
-            }
-            //parent just continues the loop.
+            task_upload(t);
+            _exit(0);
         }
-        //child waits for all to finish when loop is complete.
-        while (1)
-        {
-            pid_t finished = wait(&status);
-            message("Process %i finished!\n", finished);
-            if (finished == -1 && errno == ECHILD) break; //last proc finished
-        }
-        _exit(0);   }
-    else //parent waits for upload to finish before returning.
-    {
-        wait(&status);
-        message("Exited the upload loop. Exiting\n");
+        else continue; //parent keeps looping
     }
-
     return 0;
 }
-

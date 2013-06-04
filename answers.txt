@@ -13,17 +13,17 @@
 # information you'd like us to know, please add it at the end of the file.
 
 # Partner 1
-Name: 
-Student ID: 
-Email: 
+Name: Zach North
+Student ID: 603885768
+Email: zrnorth@gmail.com
 
-# Partner 2 (if you're working in a team)
-Name: 
-Student ID: 
-Email: 
 
 # EXERCISE 1: What method you used to make your peer download and upload
 #    files in parallel?  (~1-3 sentences)
+The method I used to run peer download and upload in parallel was fork() and wait().
+I had each loop spin off a child to handle each download / upload request, so the
+parent could continue serving in the meantime. It's a fairly simple implementation
+and probably not that fast, but it does the job.
 
 # EXERCISE 2A: What conditions did you find and fix that would have
 #    triggered a buffer overrun bug?  (~1-3 sentences each)

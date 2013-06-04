@@ -464,6 +464,10 @@ task_t *start_download(task_t *tracker_task, const char *filename)
 	peer_t *p;
 	size_t messagepos;
 	assert(tracker_task->type == TASK_TRACKER);
+    //added: check for buffer overflow
+    if (strlen(filename) > FILENAMESIZ-1)
+        die("Error: filename is too large!\n");
+
 
 	message("* Finding peers for '%s'\n", filename);
 
@@ -479,7 +483,7 @@ task_t *start_download(task_t *tracker_task, const char *filename)
 		error("* Error while allocating task");
 		goto exit;
 	}
-	strcpy(t->filename, filename);
+	strncpy(t->filename, filename, FILENAMESIZ-1);
 
 	// add peers
 	s1 = tracker_task->buf;
@@ -797,6 +801,7 @@ int main(int argc, char *argv[])
     
     while ((t = task_listen(listen_task)))
     {
+        message("Got a task, forking to handle...\n");
         pid = fork();
         if (!pid)
         {

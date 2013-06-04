@@ -38,8 +38,16 @@ static int listen_port;
  * a bounded buffer that simplifies reading from and writing to peers.
  */
 
-#define TASKBUFSIZ	4096	// Size of task_t::buf
+#define TASKBUFSIZ 65536	// Size of task_t::buf
+//Made larger to handle a larger amount of concurrent peers.
+//Not totally robust, but much more so than before.
 #define FILENAMESIZ	256	// Size of task_t::filename
+
+//PART 2 definitions
+//#define MAX_WRITE_SIZE 1000000000 //tenatively set max write size to 1GB
+#define MAX_WRITE_SIZE 100000
+//Can test functionality with small size (I used 100KB)
+#define MIN_TRANSFER_RATE 50
 
 typedef enum tasktype {		// Which type of connection is this?
 	TASK_TRACKER,		// => Tracker connection
@@ -562,6 +570,14 @@ static void task_download(task_t *t, task_t *tracker_task)
 
 	// Read the file into the task buffer from the peer,
 	// and write it from the task buffer onto disk.
+    
+
+    //want to check for very slow service. 
+    //If we get less than MIN_TRANSFER_RATE bytes 10x in a row, 
+    //we should check a different peer.
+    
+    int slow_counter = 0;
+
 	while (1) {
 		int ret = read_to_taskbuf(t->peer_fd, t);
 		if (ret == TBUF_ERROR) {
@@ -570,12 +586,40 @@ static void task_download(task_t *t, task_t *tracker_task)
 		} else if (ret == TBUF_END && t->head == t->tail)
 			/* End of file */
 			break;
+        
+        int written_pre = t->total_written; //used later, to check for min xfer rate
 
 		ret = write_from_taskbuf(t->disk_fd, t);
 		if (ret == TBUF_ERROR) {
 			error("* Disk write error");
 			goto try_again;
 		}
+
+        //check for files too large.
+        if (t->total_written > MAX_WRITE_SIZE)
+        {
+            error("Error: file %s is too large\n", t->disk_filename);
+            error("Max filesize: %s\n", (unsigned long)MAX_WRITE_SIZE);
+            goto try_again; //try again from another peer
+        }
+
+        int written = t->total_written - written_pre; //get the number of bytes in this write
+        message("Wrote %i bytes\n", written);
+        message("Slow counter: %i\n", slow_counter);
+        if (written < (long)MIN_TRANSFER_RATE)
+        {
+            slow_counter++;
+            if (slow_counter > 5)
+            {
+                error("Error: peer is serving extremely slowly for file %s\n", t->disk_filename);
+                error("Min transfer rate: %i bytes per read\n", (long)MIN_TRANSFER_RATE);
+                goto try_again;
+            }
+        }
+        else //transferring at a normal rate; reset the counter
+        {
+            slow_counter = 0;
+        }
 	}
 
 	// Empty files are usually a symptom of some error.
@@ -655,6 +699,38 @@ static void task_upload(task_t *t)
 		goto exit;
 	}
 	t->head = t->tail = 0;
+
+    //PART 2 -- make sure we only serve files from current directory
+    char f[PATH_MAX];
+    char c[PATH_MAX];
+    char* curr_path = getcwd(c, PATH_MAX);
+    char* file_path = realpath(t->filename, f);
+
+    if (!curr_path)
+    {
+        error("Error: current path is NULL\n");
+        goto exit;
+    }
+    if (!file_path)
+    {
+        error("Error: file path is NULL\n");
+        goto exit;
+    }
+    
+    //check that file exists
+    struct stat data;
+    if (stat(f, &data) < 0)
+    {
+        error("Error: file does not exist\n");
+        goto exit;
+    }
+
+    //check that paths match
+    if (strncmp(curr_path, file_path, strlen(curr_path)))
+    {
+        error("Error: can only access files in current directory\n");
+        goto exit;
+    }
 
 	t->disk_fd = open(t->filename, O_RDONLY);
 	if (t->disk_fd == -1) {

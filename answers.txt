@@ -53,6 +53,14 @@ dodging the problem, it solves our case and scales much higher than is probably 
 
 # EXERCISE 3: Describe the attacks you implemented for "evil mode".  Why
 #    are they attacks?  (~3-10 sentences each)
+I implemented 2 attacks. The first attack tries to connect to a peer with file "cat1.jpg"
+and once it has connected tries to pull the file "../answers.txt." This shouldn't 
+be allowed, because file access should be localized to the current folder, but if we can
+"escape" our folder this allows access to anything in the filesystem.
+
+The second attack I implemented involves a buffer overrun like we fixed above: I then send
+a "GET" command to the same peer with a filename that is way too long (2x the maximum
+allowed size.) It should overrun the buffer and cause errors if the peer is not prepared.
 
 # Extra credit problems
 #Extra credit problem: none

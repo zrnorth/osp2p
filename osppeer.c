@@ -23,6 +23,9 @@
 #include "md5.h"
 #include "osp2p.h"
 
+//added
+#include <sys/wait.h>
+
 int evil_mode;			// nonzero iff this peer should behave badly
 
 static struct in_addr listen_addr;	// Define listening endpoint
@@ -758,14 +761,69 @@ int main(int argc, char *argv[])
 	listen_task = start_listen();
 	register_files(tracker_task, myalias);
 
-	// First, download files named on command line.
-	for (; argc > 1; argc--, argv++)
-		if ((t = start_download(tracker_task, argv[1])))
-			task_download(t, tracker_task);
+    int status;
+    int pid = fork();
+    if (!pid) //child will then fork off for each file.
+    {
+        for (; argc > 1; argc--, argv++)
+        {
+            if ((t = start_download(tracker_task, argv[1])))
+            {
+                int inside_pid = fork();
+                if (!inside_pid)
+                {
+                    task_download(t, tracker_task);
+                    _exit(0);
+                }
+                //parent goes to next loop iteration without waiting
+            }
+        }
 
-	// Then accept connections from other peers and upload files to them!
-	while ((t = task_listen(listen_task)))
-		task_upload(t);
+        //when we finish the loop, need to wait for all children to finish.
+        while (1)
+        {
+            pid_t finished = wait(&status);
+            message("Process %i finished!\n", finished);
+            if (finished == -1 && errno == ECHILD) break; //last proc finished
+        }
+        _exit(0);
+    }
 
-	return 0;
+    else  //wait for loop to finish and continue
+    {
+        wait(&status);
+        message("Exited the download loop.\n");
+    }
+
+    // Then accept connections from other peers and upload files to them!
+    // Need to fork again, and child will handle sub-forks.
+    pid = fork();
+    if (!pid) //child will split for each listening task
+    {
+        while ((t = task_listen(listen_task)))
+        {
+            int inside_pid = fork();
+            if (!inside_pid) //child handles the upload and quits.
+            {
+                task_upload(t);
+                _exit(0);
+            }
+            //parent just continues the loop.
+        }
+        //child waits for all to finish when loop is complete.
+        while (1)
+        {
+            pid_t finished = wait(&status);
+            message("Process %i finished!\n", finished);
+            if (finished == -1 && errno == ECHILD) break; //last proc finished
+        }
+        _exit(0);   }
+    else //parent waits for upload to finish before returning.
+    {
+        wait(&status);
+        message("Exited the upload loop. Exiting\n");
+    }
+
+    return 0;
 }
+

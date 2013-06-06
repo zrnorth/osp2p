@@ -47,8 +47,7 @@ static int listen_port;
 #define FILENAMESIZ	256	// Size of task_t::filename
 
 //PART 2 definitions
-//#define MAX_WRITE_SIZE 1000000000 //tenatively set max write size to 1GB
-#define MAX_WRITE_SIZE 100000
+#define MAX_WRITE_SIZE 10000000 //tenatively set max write size to 10MB
 //Can test functionality with small size (I used 100KB)
 #define MIN_TRANSFER_RATE 50
 
@@ -738,10 +737,10 @@ static void task_upload(task_t *t)
     //DESIGN PROBLEM stuff
     //Here we need to check the requested file against the ACCESS_FILE
     //TODO: user authentication
-    
+   
     if (!file_access_ok(t->filename))
     {
-        error("Error 403: file access forbidden\n");
+        message("Error 403: file access forbidden\n");
         goto exit;
     }
 
@@ -973,7 +972,9 @@ int main(int argc, char *argv[])
             message("Evil finished\n");
         }
     }
-    
+   
+
+    //now handle uploads
     while ((t = task_listen(listen_task)))
     {
         message("Got a task, forking to handle...\n");
@@ -983,7 +984,7 @@ int main(int argc, char *argv[])
             task_upload(t);
             _exit(0);
         }
-        else continue; //parent keeps looping
+        //parent keeps looping 
     }
     return 0;
 }

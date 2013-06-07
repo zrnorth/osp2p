@@ -977,14 +977,18 @@ int main(int argc, char *argv[])
     //now handle uploads
     while ((t = task_listen(listen_task)))
     {
-        message("Got a task, forking to handle...\n");
         pid = fork();
         if (!pid)
         {
             task_upload(t);
             _exit(0);
         }
-        //parent keeps looping 
+        else
+        {
+            task_free(t);
+            continue;
+        }
+        //parent keeps looping
     }
     return 0;
 }

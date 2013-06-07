@@ -970,7 +970,11 @@ int main(int argc, char *argv[])
             task_upload(t);
             _exit(0);
         }
-        else continue; //parent keeps looping
+        else 
+        {
+            task_free(t);
+            continue; //parent keeps looping
+        }
     }
     return 0;
 }

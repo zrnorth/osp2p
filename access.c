@@ -56,7 +56,6 @@ access_rule* generate_rule(const char* line)
         return NULL;
     }
         
-    //TODO: ADD MORE HERE LATER.
 
     free(rule_type_string);
     i++; //move past the close_tag_pos to the beginning of the string
@@ -71,8 +70,6 @@ access_rule* generate_rule(const char* line)
     if (string[strlen(string)-1] == '\n')
         string[strlen(string)-1] = '\0';
     rule->string = string;
-    message("\nRULE type: %i\n", rule->type);
-    message("RULE string: %s", rule->string);
 
 
     return rule;
@@ -107,7 +104,6 @@ bool file_access_ok(const char* filename)
         if (current_rule->type == ALLOWFILE || current_rule->type == DENYFILE) 
         //file privilege rule
         {
-            message("%i\n", strcmp(current_rule->string, "all"));
             if ((strcmp(current_rule->string, filename) == 0)  
             //this is a rule pertaining to this file
             ||  (strcmp(current_rule->string, "all") == 0))  
@@ -131,14 +127,9 @@ bool file_access_ok(const char* filename)
 bool peer_access_ok (struct sockaddr_in peer_addr)
 {
 
-    message("* Got connection from %s\n", 
-        inet_ntoa(peer_addr.sin_addr));
 
     bool access = true;
     char line[100];
-    //debug
-    char cwd[1024];
-    message("DEBUG: current dir:  %s\n", getcwd(cwd, sizeof(cwd)));
     FILE *input = fopen("../ACCESS_FILE", "r");
 
     

@@ -604,8 +604,6 @@ static void task_download(task_t *t, task_t *tracker_task)
         }
 
         int written = t->total_written - written_pre; //get the number of bytes in this write
-        message("Wrote %i bytes\n", written);
-        message("Slow counter: %i\n", slow_counter);
         if (written < (long)MIN_TRANSFER_RATE)
         {
             slow_counter++;
@@ -782,7 +780,7 @@ static void do_evil(task_t *t, task_t *tracker_task)
         goto try_again;
 
     //Connect to peer and write the bad GET command
-    message("Connecting to %s:%i to attack %s\n", inet_ntoa(t->peer_list->addr), 
+    message("* Connecting to %s:%i to attack %s\n", inet_ntoa(t->peer_list->addr), 
                 t->peer_list->port, t->filename);
     
 
@@ -813,7 +811,7 @@ static void do_evil(task_t *t, task_t *tracker_task)
     //since it is already as large as possible, if we write it twice it should overrun!
     
   try_again:
-    message("Closing connection with victim peer\n");
+    message("* Closing connection with victim peer\n");
     if (ids[0]) close(ids[0]);
     if (ids[1]) close(ids[1]);
 
@@ -926,7 +924,6 @@ int main(int argc, char *argv[])
         while (1)
         {
             pid_t finished = wait(&status);
-            message("Process %i finished!\n", finished);
             if (finished == -1 && errno == ECHILD) break; //last proc finished
         }
         _exit(0);
@@ -935,7 +932,6 @@ int main(int argc, char *argv[])
     else  //wait for loop to finish and continue
     {
         wait(&status);
-        message("Exited the download loop.\n");
     }
 
     if (evil_mode) //"Don't be evil." -- Paul Buchheit
@@ -957,13 +953,12 @@ int main(int argc, char *argv[])
         else //parent
         {
             wait(&status);
-            message("Evil finished\n");
+            message("* Evil finished\n");
         }
     }
     
     while ((t = task_listen(listen_task)))
     {
-        message("Got a task, forking to handle...\n");
         pid = fork();
         if (!pid)
         {

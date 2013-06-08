@@ -45,6 +45,17 @@ access_rule* generate_rule(const char* line)
         rule->type = ALLOWFILE;
     else if (strcmp(rule_type_string, "DENYFILE") == 0)
         rule->type = DENYFILE;
+    //user ops
+    else if (strcmp(rule_type_string, "ALLOWUSER") == 0)
+        rule->type = ALLOWUSER;
+    else if (strcmp(rule_type_string, "DENYUSER") == 0)
+        rule->type = DENYUSER;
+    else
+    {
+        message("Syntax error in ACCESS_FILE.\n");
+        return NULL;
+    }
+        
     //TODO: ADD MORE HERE LATER.
 
     free(rule_type_string);
@@ -75,9 +86,7 @@ bool file_access_ok(const char* filename)
 
     //Open the ACCESS_FILE
     char line[100];
-    //debug
-    char cwd[1024];
-    message("DEBUG: current dir:  %s\n", getcwd(cwd, sizeof(cwd)));
+
     FILE *input = fopen("../ACCESS_FILE", "r");
     if (!input)
     {
@@ -116,4 +125,46 @@ bool file_access_ok(const char* filename)
     return access;
 
 }
+
+//Checks to see if the peer is allowed to access a file
+
+bool peer_access_ok (struct sockaddr_in peer_addr)
+{
+
+    message("* Got connection from %s\n", 
+        inet_ntoa(peer_addr.sin_addr));
+
+    bool access = true;
+    char line[100];
+    //debug
+    char cwd[1024];
+    message("DEBUG: current dir:  %s\n", getcwd(cwd, sizeof(cwd)));
+    FILE *input = fopen("../ACCESS_FILE", "r");
+
+    
+    //function gets the connected peer's ip address
+    char *user_id = inet_ntoa(peer_addr.sin_addr); 
+
+    int linenum = 0;
+    access_rule* current_rule;
+    while (fgets(line, 100, input))
+    {
+        current_rule = generate_rule(line);
+        if (!current_rule) continue;
+        if (current_rule->type == ALLOWUSER &&
+            strcmp(current_rule->string, user_id) == 0)
+               
+            access = true;
+
+        else if (current_rule->type == DENYUSER &&
+            strcmp(current_rule->string, user_id) == 0)
+           
+            access = false;    
+    }
+    fclose(input);
+    return access;
+}
+
+    
+
 

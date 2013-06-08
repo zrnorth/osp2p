@@ -35,12 +35,13 @@ static struct in_addr listen_addr;	// Define listening endpoint
 static int listen_port;
 
 
+
 /*****************************************************************************
  * TASK STRUCTURE
  * Holds all information relevant for a peer or tracker connection, including
  * a bounded buffer that simplifies reading from and writing to peers.
  */
-
+/*
 #define TASKBUFSIZ 65536	// Size of task_t::buf
 //Made larger to handle a larger amount of concurrent peers.
 //Not totally robust, but much more so than before.
@@ -87,6 +88,9 @@ typedef struct task {
 				// at a time, if a peer misbehaves.
 } task_t;
 
+*/
+//^^^^^^^^^^^^^^^^^^^^^
+//MOVED ALL OF THE ABOVE TO A HEADER FILE
 
 // task_new(type)
 //	Create and return a new task of type 'type'.
@@ -672,8 +676,12 @@ static task_t *task_listen(task_t *listen_task)
 		inet_ntoa(peer_addr.sin_addr), ntohs(peer_addr.sin_port));
 
 	t = task_new(TASK_UPLOAD);
-	t->peer_fd = fd;
-	return t;
+    if (peer_access_ok(peer_addr))
+	    t->peer_fd = fd;
+    else
+        t->peer_fd = -1; //indicates not allowed
+
+    return t;
 }
 
 
@@ -685,7 +693,14 @@ static void task_upload(task_t *t)
 {
 	assert(t->type == TASK_UPLOAD);
 	// First, read the request from the peer.
-	while (1) {
+    
+    //DESIGN PROB: make sure the peer is allowed in
+    if (t->peer_fd == -1) //MAGIC NUMBERS indicates peer is disallowed.
+    {
+        message("Error 401: Client is unauthorized\n");
+        goto exit;
+    }
+    while (1) {
 		int ret = read_to_taskbuf(t->peer_fd, t);
 		if (ret == TBUF_ERROR) {
 			error("* Cannot read from connection");
@@ -701,7 +716,7 @@ static void task_upload(task_t *t)
 		goto exit;
 	}
 	t->head = t->tail = 0;
-
+    
     //PART 2 -- make sure we only serve files from current directory
     char f[PATH_MAX];
     char c[PATH_MAX];
